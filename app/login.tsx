@@ -1,6 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import CryptoJS from "crypto-js";
 import { router } from "expo-router";
-import { useState } from "react";
+import React, { useState } from "react";
+
 import {
   Image,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { supabase } from "../supabase";
 
 export default function LoginPage() {
@@ -20,7 +23,7 @@ export default function LoginPage() {
   const handleLogin = async () => {
     let newErrors: any = {};
 
-    // validation
+    // VALIDATION
     if (!email) newErrors.email = "Email is required.";
     if (!password) newErrors.password = "Password is required.";
 
@@ -28,33 +31,48 @@ export default function LoginPage() {
 
     if (Object.keys(newErrors).length > 0) return;
 
-    const hashedPassword = CryptoJS.SHA256(password).toString();
+    try {
+      const hashedPassword = CryptoJS.SHA256(password).toString();
 
-    const { data } = await supabase
-    .from("users_table")
-    .select("*")
-    .eq("u_email", email.trim().toLowerCase())
-    .eq("u_pass", hashedPassword)
-    .maybeSingle();
+      const { data, error } = await supabase
+        .from("users_table")
+        .select("*")
+        .eq("u_email", email.trim().toLowerCase())
+        .eq("u_pass", hashedPassword)
+        .maybeSingle();
 
-   if (!data) {
-  setErrors({
-    password: "Invalid email or password.",
-  });
-  return;
-}
+      if (error) {
+        setErrors({ password: "Login error. Try again." });
+        return;
+      }
 
-if (data.u_status === "Pending") {
-  setErrors({
-    password: "Your account is still pending approval.",
-  });
-  return;
-}
-    // role redirect
-    if (data.u_role === "admin") {
-      router.replace("/admindb");
-    } else {
-      router.replace("/dashboard");
+      if (!data) {
+        setErrors({
+          password: "Invalid email or password.",
+        });
+        return;
+      }
+
+      if (data.u_status === "Pending") {
+        setErrors({
+          password: "Your account is still pending approval.",
+        });
+        return;
+      }
+
+      // SAVE USER SESSION
+      await AsyncStorage.setItem("user", JSON.stringify(data));
+
+      // ROLE REDIRECT
+      if (data.u_role === "admin") {
+        router.replace("/admindb");
+      } else {
+        router.replace("/dashboard");
+      }
+    } catch (err: any) {
+      setErrors({
+        password: err.message,
+      });
     }
   };
 
@@ -80,7 +98,6 @@ if (data.u_status === "Pending") {
           value={email}
           onChangeText={setEmail}
         />
-
         {errors.email && (
           <Text style={{ color: "red", marginBottom: 10 }}>
             {errors.email}
@@ -94,7 +111,6 @@ if (data.u_status === "Pending") {
           value={password}
           onChangeText={setPassword}
         />
-
         {errors.password && (
           <Text style={{ color: "red", marginBottom: 10 }}>
             {errors.password}
