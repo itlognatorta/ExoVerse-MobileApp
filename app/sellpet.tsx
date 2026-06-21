@@ -3,14 +3,14 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../supabase";
 
@@ -19,13 +19,20 @@ export default function SellPet() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState<any>(null);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categoryLabel, setCategoryLabel] = useState("");
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+
   const [image, setImage] = useState<any>(null);
   const [errors, setErrors] = useState<any>({});
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load user
+  const categories = [
+    { id: "1", name: "Reptiles" },
+    { id: "2", name: "Birds" },
+    { id: "3", name: "Amphibians" },
+  ];
+
   useEffect(() => {
     const loadUser = async () => {
       const data = await AsyncStorage.getItem("user");
@@ -34,16 +41,6 @@ export default function SellPet() {
     loadUser();
   }, []);
 
-  // Load categories
-  useEffect(() => {
-    const fetchCategories = async () => {
-      const { data } = await supabase.from("pet_category").select("*");
-      setCategories(data || []);
-    };
-    fetchCategories();
-  }, []);
-
-  // Pick Image
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -56,7 +53,6 @@ export default function SellPet() {
     }
   };
 
-  // Validation
   const validate = () => {
     let err: any = {};
 
@@ -70,11 +66,9 @@ export default function SellPet() {
     return Object.keys(err).length === 0;
   };
 
-  // Upload image to Supabase
   const uploadImage = async () => {
     const fileExt = image.uri.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
-
     const filePath = `pets/${fileName}`;
 
     const response = await fetch(image.uri);
@@ -95,7 +89,6 @@ export default function SellPet() {
     return data.publicUrl;
   };
 
-  // Submit
   const handleSubmit = async () => {
     if (!validate()) return;
 
@@ -104,7 +97,6 @@ export default function SellPet() {
 
       const imageUrl = await uploadImage();
 
-      // Insert listing
       const { data: listing, error } = await supabase
         .from("pet_listings")
         .insert([
@@ -121,7 +113,6 @@ export default function SellPet() {
 
       if (error) throw error;
 
-      // Insert image
       await supabase.from("pet_images").insert([
         {
           l_id: listing.l_id,
@@ -135,6 +126,7 @@ export default function SellPet() {
       setDescription("");
       setPrice("");
       setCategory(null);
+      setCategoryLabel("");
       setImage(null);
     } catch (err: any) {
       Alert.alert("Error", err.message);
@@ -147,7 +139,7 @@ export default function SellPet() {
     <ScrollView style={styles.container}>
       <Text style={styles.header}>Sell Your Exotic Pet</Text>
 
-      {/* Image Picker */}
+      {/* IMAGE */}
       <TouchableOpacity style={styles.imageBox} onPress={pickImage}>
         {image ? (
           <Image source={{ uri: image.uri }} style={styles.image} />
@@ -155,41 +147,24 @@ export default function SellPet() {
           <Text>Select Image</Text>
         )}
       </TouchableOpacity>
-      {errors.image && <Text style={styles.error}>{errors.image}</Text>}
 
-      <TouchableOpacity
-  style={{
-    marginTop: 50,
-    marginLeft: 20,
-  }}
-  onPress={() => router.replace("/dashboard")}
->
-  <Text style={{ fontSize: 18, color: "#1B5E20" }}>
-    ← Back to Dashboard
-  </Text>
-</TouchableOpacity>
-
-      {/* Title */}
+      {/* TITLE */}
       <TextInput
         placeholder="Pet Name"
         value={title}
         onChangeText={setTitle}
         style={styles.input}
       />
-      {errors.title && <Text style={styles.error}>{errors.title}</Text>}
 
-      {/* Description */}
+      {/* DESCRIPTION */}
       <TextInput
         placeholder="Description"
         value={description}
         onChangeText={setDescription}
         style={styles.input}
       />
-      {errors.description && (
-        <Text style={styles.error}>{errors.description}</Text>
-      )}
 
-      {/* Price */}
+      {/* PRICE */}
       <TextInput
         placeholder="Price"
         value={price}
@@ -197,29 +172,36 @@ export default function SellPet() {
         keyboardType="numeric"
         style={styles.input}
       />
-      {errors.price && <Text style={styles.error}>{errors.price}</Text>}
 
-      {/* Categories */}
-      <Text style={styles.label}>Select Category</Text>
-      <View style={styles.catContainer}>
-        {categories.map((cat) => (
-          <TouchableOpacity
-            key={cat.cat_id}
-            style={[
-              styles.catBtn,
-              category === cat.cat_id && styles.catActive,
-            ]}
-            onPress={() => setCategory(cat.cat_id)}
-          >
-            <Text>{cat.cat_name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {errors.category && (
-        <Text style={styles.error}>{errors.category}</Text>
+      {/* CATEGORY DROPDOWN */}
+      <TouchableOpacity
+        style={styles.input}
+        onPress={() => setDropdownVisible(!dropdownVisible)}
+      >
+        <Text style={{ color: categoryLabel ? "#000" : "#888" }}>
+          {categoryLabel || "Select Category"}
+        </Text>
+      </TouchableOpacity>
+
+      {dropdownVisible && (
+        <View style={styles.dropdown}>
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              style={styles.dropdownItem}
+              onPress={() => {
+                setCategory(cat.id);
+                setCategoryLabel(cat.name);
+                setDropdownVisible(false);
+              }}
+            >
+              <Text>{cat.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       )}
 
-      {/* Submit */}
+      {/* SELL BUTTON */}
       <TouchableOpacity
         style={styles.button}
         onPress={handleSubmit}
@@ -228,6 +210,14 @@ export default function SellPet() {
         <Text style={styles.buttonText}>
           {loading ? "Posting..." : "Sell Pet"}
         </Text>
+      </TouchableOpacity>
+
+      {/* BACK BUTTON */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.replace("/dashboard")}
+      >
+        <Text style={styles.buttonText}>Back to Dashboard</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -269,43 +259,36 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
 
-  label: {
-    marginTop: 10,
-    fontWeight: "bold",
-  },
-
-  catContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginVertical: 10,
-  },
-
-  catBtn: {
-    padding: 10,
+  dropdown: {
     backgroundColor: "#FFF",
-    margin: 5,
-    borderRadius: 10,
+    borderRadius: 12,
+    marginBottom: 10,
+    overflow: "hidden",
   },
 
-  catActive: {
-    backgroundColor: "#A5D6A7",
+  dropdownItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
 
   button: {
     backgroundColor: "#1B5E20",
     padding: 15,
     borderRadius: 12,
-    marginTop: 20,
+    marginTop: 10,
+  },
+
+  backButton: {
+    backgroundColor: "#1B5E20",
+    padding: 15,
+    borderRadius: 12,
+    marginTop: 10,
   },
 
   buttonText: {
     color: "#FFF",
     textAlign: "center",
     fontWeight: "bold",
-  },
-
-  error: {
-    color: "red",
-    marginBottom: 5,
   },
 });

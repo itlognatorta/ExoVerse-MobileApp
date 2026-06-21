@@ -1,14 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import CryptoJS from "crypto-js";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../supabase";
 
@@ -26,7 +26,6 @@ export default function Settings() {
     loadUser();
   }, []);
 
-  // 🔒 CHANGE PASSWORD
   const handleChangePassword = async () => {
     if (!oldPass || !newPass) {
       Alert.alert("Error", "All fields are required");
@@ -54,16 +53,12 @@ export default function Settings() {
     Alert.alert("Success", "Password updated!");
 
     const updatedUser = { ...user, u_pass: hashedNew };
-    await AsyncStorage.setItem(
-      "user",
-      JSON.stringify(updatedUser)
-    );
+    await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
 
     setOldPass("");
     setNewPass("");
   };
 
-  // ❌ DELETE ACCOUNT (soft delete option)
   const handleDeleteAccount = async () => {
     Alert.alert(
       "Confirm Delete",
@@ -80,7 +75,6 @@ export default function Settings() {
               .eq("u_id", user.u_id);
 
             await AsyncStorage.removeItem("user");
-
             router.replace("/login");
           },
         },
@@ -88,7 +82,6 @@ export default function Settings() {
     );
   };
 
-  // 🚪 LOGOUT
   const handleLogout = async () => {
     await AsyncStorage.removeItem("user");
     router.replace("/login");
@@ -111,9 +104,7 @@ export default function Settings() {
 
       {/* CHANGE PASSWORD */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>
-          Change Password
-        </Text>
+        <Text style={styles.sectionTitle}>Change Password</Text>
 
         <TextInput
           placeholder="Old Password"
@@ -131,45 +122,30 @@ export default function Settings() {
           style={styles.input}
         />
 
-        <TouchableOpacity
-          style={styles.btn}
-          onPress={handleChangePassword}
-        >
-          <Text style={styles.btnText}>
-            Update Password
-          </Text>
+        <TouchableOpacity style={styles.btn} onPress={handleChangePassword}>
+          <Text style={styles.btnText}>Update Password</Text>
         </TouchableOpacity>
       </View>
 
       {/* ACTIONS */}
       <View style={styles.card}>
+
+        {/* BACK BUTTON (NEW STYLE) */}
         <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={handleLogout}
+          style={styles.backButton}
+          onPress={() => router.replace("/dashboard")}
         >
-          <Text style={styles.logoutText}>
-            Logout
-          </Text>
+          <Text style={styles.btnText}>Back to Dashboard</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.deleteBtn}
-          onPress={handleDeleteAccount}
-        >
-          <Text style={styles.deleteText}>
-            Delete Account
-          </Text>
+        {/* LOGOUT */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-        style={{
-            marginTop: 50,
-            marginLeft: 20,
-        }}
-        onPress={() => router.replace("/dashboard")}
-        >
-        <Text style={{ fontSize: 18, color: "#1B5E20" }}>
-            ← Back to Dashboard
-        </Text>
+
+        {/* DELETE */}
+        <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount}>
+          <Text style={styles.deleteText}>Delete Account</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -232,6 +208,14 @@ const styles = StyleSheet.create({
   btnText: {
     color: "#fff",
     fontWeight: "bold",
+    textAlign: "center",
+  },
+
+  backButton: {
+    backgroundColor: "#1B5E20",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
   },
 
   logoutBtn: {
