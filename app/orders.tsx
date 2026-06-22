@@ -55,55 +55,78 @@ export default function Orders() {
 
   // LISTINGS (FIXED)
   const fetchListings = async () => {
-    const { data, error } = await supabase
-      .from("pet_listings")
-      .select(`
-        *,
-        users_table (u_fname, u_lname)
-      `)
-      .eq("l_status", "Approved");
+  const { data, error } = await supabase
+    .from("pet_listings")
+    .select(`
+      *,
+      users_table (
+        u_fname,
+        u_lname
+      )
+    `)
+    .eq("l_status", "Approved");
 
-    if (error) {
-      console.log(error);
-      return;
-    }
+  if (error) {
+    console.log("LISTINGS ERROR:", error);
+    return;
+  }
 
-    setListings(data || []);
-  };
+  console.log("LISTINGS:", data);
+
+  setListings(data || []);
+};
 
   // ADD QUANTITY
   const increaseQty = (item: any) => {
-    setCart((prev) => {
-      const found = prev.find((p) => p.l_id === item.l_id);
+  setCart((prev) => {
+    const found = prev.find((p) => p.l_id === item.l_id);
 
-      if (!found) {
-        if (item.pet_avail <= 0) return prev;
-        return [...prev, { ...item, qty: 1 }];
-      }
+    if (!found) {
+      const newItem = {
+        l_id: item.l_id,
+        u_id: item.u_id, // seller id
+        p_name: item.p_name,
+        p_price: item.p_price,
+        image_url: item.image_url,
+        pet_avail: item.pet_avail,
+        qty: 1,
+      };
 
-      if (found.qty >= item.pet_avail) return prev;
+      console.log("ADDED TO CART:", newItem);
 
-      return prev.map((p) =>
-        p.l_id === item.l_id ? { ...p, qty: p.qty + 1 } : p
-      );
-    });
-  };
+      return [...prev, newItem];
+    }
+
+    if (found.qty >= Number(item.pet_avail)) {
+      return prev;
+    }
+
+    return prev.map((p) =>
+      p.l_id === item.l_id
+        ? { ...p, qty: p.qty + 1 }
+        : p
+    );
+  });
+};
 
   // DECREASE QTY
   const decreaseQty = (item: any) => {
-    setCart((prev) => {
-      const found = prev.find((p) => p.l_id === item.l_id);
-      if (!found) return prev;
+  setCart((prev) => {
+    const found = prev.find((p) => p.l_id === item.l_id);
 
-      if (found.qty === 1) {
-        return prev.filter((p) => p.l_id !== item.l_id);
-      }
+    if (!found) return prev;
 
-      return prev.map((p) =>
-        p.l_id === item.l_id ? { ...p, qty: p.qty - 1 } : p
-      );
-    });
-  };
+    if (found.qty === 1) {
+      return prev.filter((p) => p.l_id !== item.l_id);
+    }
+
+    return prev.map((p) =>
+      p.l_id === item.l_id
+        ? { ...p, qty: p.qty - 1 }
+        : p
+    );
+  });
+};
 
   // TOTAL PRICE
   const totalPrice = cart.reduce(
@@ -113,42 +136,59 @@ export default function Orders() {
 
   // PLACE ORDER (FIXED BUTTON WORKING)
   const placeOrder = async () => {
-    if (cart.length === 0) {
-      Alert.alert("No items selected");
-      return;
-    }
-  
-    const insertData = cart.map((item) => ({
-      buyer_id: user.u_id,
-      seller_id: item.user_id, // must exist in pet_listings
-      l_id: item.l_id,
-      quantity: item.qty,
-      total_price: Number(item.p_price) * item.qty,
-      status: "Pending",
-    }));
-  
-    const { data, error } = await supabase
-      .from("orders_table")
-      .insert(insertData)
-      .select();
-  
-    if (error) {
-      console.log("ORDER ERROR:", error);
-      Alert.alert("Order Failed", error.message);
-      return;
-    }
-  
-    console.log("ORDER SUCCESS:", data);
-  
+  if (cart.length === 0) {
+    Alert.alert("No items selected");
+    return;
+  }
+
+  console.log("CART DATA:", cart);
+
+  const insertData = cart.map((item) => ({
+    buyer_id: user.u_id,
+    seller_id: item.u_id,
+    l_id: item.l_id,
+    quantity: item.qty,
+    total_price: Number(item.p_price) * item.qty,
+    status: "Pending",
+  }));
+
+  console.log("INSERT DATA:", insertData);
+
+  const missingSeller = insertData.find(
+    (item) => !item.seller_id
+  );
+
+  if (missingSeller) {
     Alert.alert(
-      "Order Successful",
-      "Wait for seller to approve your order."
+      "Error",
+      "Seller ID is missing. Check pet_listings.u_id."
     );
-  
-    setCart([]);
-    setModalVisible(false);
-    fetchOrders();
-  };
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("orders_table")
+    .insert(insertData)
+    .select();
+
+  if (error) {
+    console.log("ORDER ERROR:", error);
+    Alert.alert("Order Failed", error.message);
+    return;
+  }
+
+  console.log("ORDER SUCCESS:", data);
+
+  Alert.alert(
+    "Order Successful",
+    "Wait for seller to approve your order."
+  );
+
+  setCart([]);
+  setModalVisible(false);
+
+  fetchOrders();
+};
   // CANCEL
   const cancelOrder = () => {
     setCart([]);

@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -117,7 +117,7 @@ export default function SellPet() {
             location: location,
             cat_id: Number(category),
             u_id: user.u_id,
-            p_avail: available,
+            pet_avail: available,
             l_status: "Pending",
             image_url: base64Image, // ✅ IMAGE STORED HERE
           },
@@ -166,7 +166,8 @@ export default function SellPet() {
       <TextInput placeholder="Location" value={location} onChangeText={setLocation} style={styles.input} />
       <TextInput placeholder="Description" value={description} onChangeText={setDescription} style={styles.input} />
       <TextInput placeholder="Price" value={price} onChangeText={setPrice} keyboardType="numeric" style={styles.input} />
-
+      <TextInput placeholder="Pet Quantity" value={available} onChangeText={setAvail} keyboardType="numeric" style={styles.input}
+/>
       <TouchableOpacity
         style={styles.input}
         onPress={() => setDropdownVisible(!dropdownVisible)}

@@ -226,6 +226,10 @@ export default function Dashboard() {
               <Text style={styles.menuItem}>Favorites</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity onPress={() => router.push("/sales")}>
+              <Text style={styles.menuItem}>Sales</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity onPress={() => router.push("/settings")}>
               <Text style={styles.menuItem}>Settings</Text>
             </TouchableOpacity>
