@@ -2,12 +2,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../supabase";
 
@@ -21,17 +22,12 @@ export default function Sales() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      fetchSales();
-    }
+    if (user) fetchSales();
   }, [user]);
 
   const loadUser = async () => {
     const data = await AsyncStorage.getItem("user");
-
-    if (data) {
-      setUser(JSON.parse(data));
-    }
+    if (data) setUser(JSON.parse(data));
   };
 
   const fetchSales = async () => {
@@ -63,13 +59,42 @@ export default function Sales() {
     setLoading(false);
   };
 
+  // ✅ APPROVE ORDER
+  const approveOrder = async (orderId: number) => {
+    const { error } = await supabase
+      .from("orders_table")
+      .update({ status: "Approved" })
+      .eq("order_id", orderId);
+
+    if (error) {
+      Alert.alert("Error", error.message);
+      return;
+    }
+
+    Alert.alert("Success", "Order Approved");
+    fetchSales();
+  };
+
+  // ❌ REJECT ORDER
+  const rejectOrder = async (orderId: number) => {
+    const { error } = await supabase
+      .from("orders_table")
+      .update({ status: "Rejected" })
+      .eq("order_id", orderId);
+
+    if (error) {
+      Alert.alert("Error", error.message);
+      return;
+    }
+
+    Alert.alert("Order Rejected");
+    fetchSales();
+  };
+
   const getTotalRevenue = () => {
     return sales
       .filter((item) => item.status === "Approved")
-      .reduce(
-        (sum, item) => sum + Number(item.total_price),
-        0
-      );
+      .reduce((sum, item) => sum + Number(item.total_price), 0);
   };
 
   return (
@@ -80,68 +105,49 @@ export default function Sales() {
         style={styles.backBtn}
         onPress={() => router.replace("/dashboard")}
       >
-        <Text style={styles.backText}>
-          ← Back to Dashboard
-        </Text>
+        <Text style={styles.backText}>← Back to Dashboard</Text>
       </TouchableOpacity>
 
+      {/* SUMMARY */}
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>
-          Total Revenue
-        </Text>
-
-        <Text style={styles.summaryAmount}>
-          ₱{getTotalRevenue()}
-        </Text>
+        <Text style={styles.summaryTitle}>Total Revenue</Text>
+        <Text style={styles.summaryAmount}>₱{getTotalRevenue()}</Text>
       </View>
 
+      {/* LOADING */}
       {loading ? (
-        <ActivityIndicator
-          size="large"
-          color="#1B5E20"
-          style={{ marginTop: 30 }}
-        />
+        <ActivityIndicator size="large" color="#1B5E20" />
       ) : (
         <FlatList
           data={sales}
-          keyExtractor={(item) =>
-            item.order_id.toString()
-          }
+          keyExtractor={(item) => item.order_id.toString()}
           ListEmptyComponent={
-            <Text style={styles.empty}>
-              No sales found.
-            </Text>
+            <Text style={styles.empty}>No sales found.</Text>
           }
           renderItem={({ item }) => {
-            const buyer =
-              item.users_table
-                ? `${item.users_table.u_fname} ${item.users_table.u_lname}`
-                : "Unknown Buyer";
+            const buyer = item.users_table
+              ? `${item.users_table.u_fname} ${item.users_table.u_lname}`
+              : "Unknown Buyer";
 
             return (
               <View style={styles.card}>
+                {/* PET INFO */}
                 <Text style={styles.petName}>
                   {item.pet_listings?.p_name}
                 </Text>
 
-                <Text style={styles.text}>
-                  Buyer: {buyer}
-                </Text>
+                <Text style={styles.text}>Buyer: {buyer}</Text>
+                <Text style={styles.text}>Quantity: {item.quantity}</Text>
 
                 <Text style={styles.text}>
-                  Quantity: {item.quantity}
-                </Text>
-
-                <Text style={styles.text}>
-                  Price Per Pet: ₱
-                  {item.pet_listings?.p_price}
+                  Price: ₱{item.pet_listings?.p_price}
                 </Text>
 
                 <Text style={styles.total}>
-                  Total Payment: ₱
-                  {item.total_price}
+                  Total: ₱{item.total_price}
                 </Text>
 
+                {/* STATUS */}
                 <Text
                   style={[
                     styles.status,
@@ -152,8 +158,32 @@ export default function Sales() {
                       : styles.pending,
                   ]}
                 >
-                  {item.status}
+                  Status: {item.status}
                 </Text>
+
+                {/* BUYER ORDER DETAILS */}
+                <Text style={styles.subInfo}>
+                  Buyer purchased this pet
+                </Text>
+
+                {/* ACTION BUTTONS (ONLY FOR PENDING) */}
+                {item.status === "Pending" && (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={styles.approveBtn}
+                      onPress={() => approveOrder(item.order_id)}
+                    >
+                      <Text style={styles.btnText}>Approve</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.rejectBtn}
+                      onPress={() => rejectOrder(item.order_id)}
+                    >
+                      <Text style={styles.btnText}>Reject</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             );
           }}
@@ -254,4 +284,40 @@ const styles = StyleSheet.create({
     marginTop: 50,
     color: "gray",
   },
+
+  actionRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  marginTop: 10,
+},
+
+approveBtn: {
+  backgroundColor: "green",
+  flex: 1,
+  padding: 10,
+  borderRadius: 8,
+  marginRight: 5,
+},
+
+rejectBtn: {
+  backgroundColor: "red",
+  flex: 1,
+  padding: 10,
+  borderRadius: 8,
+  marginLeft: 5,
+},
+
+btnText: {
+  color: "#fff",
+  textAlign: "center",
+  fontWeight: "bold",
+},
+
+subInfo: {
+  marginTop: 8,
+  fontSize: 12,
+  color: "#666",
+  fontStyle: "italic",
+},
+
 });
