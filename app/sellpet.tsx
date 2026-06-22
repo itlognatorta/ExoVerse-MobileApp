@@ -16,8 +16,14 @@ import { supabase } from "../supabase";
 
 export default function SellPet() {
   const [title, setTitle] = useState("");
+  const [species, setSpecies] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("");
+  const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [available, setAvail] = useState("");
+
   const [category, setCategory] = useState<any>(null);
   const [categoryLabel, setCategoryLabel] = useState("");
   const [dropdownVisible, setDropdownVisible] = useState(false);
@@ -46,6 +52,7 @@ export default function SellPet() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
+      base64: true,
     });
 
     if (!result.canceled) {
@@ -56,9 +63,14 @@ export default function SellPet() {
   const validate = () => {
     let err: any = {};
 
-    if (!title) err.title = "Title is required";
+    if (!title) err.title = "Pet Name is required";
+    if (!species) err.species = "Species is required";
+    if (!age) err.age = "Age is required";
+    if (!gender) err.gender = "Gender is required";
+    if (!location) err.location = "Location is required";
     if (!description) err.description = "Description is required";
     if (!price) err.price = "Price is required";
+    if (!available) err.title = "Pet Availability is required";
     if (!category) err.category = "Category is required";
     if (!image) err.image = "Image is required";
 
@@ -66,27 +78,20 @@ export default function SellPet() {
     return Object.keys(err).length === 0;
   };
 
-  const uploadImage = async () => {
-    const fileExt = image.uri.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `pets/${fileName}`;
-
-    const response = await fetch(image.uri);
+  const convertToBase64 = async (uri: string) => {
+    const response = await fetch(uri);
     const blob = await response.blob();
 
-    const { error } = await supabase.storage
-      .from("pet-images")
-      .upload(filePath, blob, {
-        contentType: "image/jpeg",
-      });
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
 
-    if (error) throw error;
+      reader.onloadend = () => {
+        resolve(reader.result);
+      };
 
-    const { data } = supabase.storage
-      .from("pet-images")
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   };
 
   const handleSubmit = async () => {
@@ -95,17 +100,26 @@ export default function SellPet() {
     try {
       setLoading(true);
 
-      const imageUrl = await uploadImage();
+      // ✅ convert image to base64
+      const base64Image: any = await convertToBase64(image.uri);
 
+      // ✅ insert directly into pet_listings
       const { data: listing, error } = await supabase
         .from("pet_listings")
         .insert([
           {
-            title,
-            description,
-            price: parseFloat(price),
-            cat_id: category,
+            p_name: title,
+            p_species: species,
+            p_age: age,
+            p_gender: gender,
+            p_price: parseFloat(price),
+            description: description,
+            location: location,
+            cat_id: Number(category),
             u_id: user.u_id,
+            p_avail: available,
+            l_status: "Pending",
+            image_url: base64Image, // ✅ IMAGE STORED HERE
           },
         ])
         .select()
@@ -113,23 +127,21 @@ export default function SellPet() {
 
       if (error) throw error;
 
-      await supabase.from("pet_images").insert([
-        {
-          l_id: listing.l_id,
-          image_url: imageUrl,
-        },
-      ]);
-
       Alert.alert("Success", "Pet listed successfully!");
 
       setTitle("");
+      setSpecies("");
+      setAge("");
+      setGender("");
+      setLocation("");
       setDescription("");
       setPrice("");
       setCategory(null);
       setCategoryLabel("");
       setImage(null);
     } catch (err: any) {
-      Alert.alert("Error", err.message);
+      console.log(err);
+      Alert.alert("Error", JSON.stringify(err, null, 2));
     } finally {
       setLoading(false);
     }
@@ -139,7 +151,6 @@ export default function SellPet() {
     <ScrollView style={styles.container}>
       <Text style={styles.header}>Sell Your Exotic Pet</Text>
 
-      {/* IMAGE */}
       <TouchableOpacity style={styles.imageBox} onPress={pickImage}>
         {image ? (
           <Image source={{ uri: image.uri }} style={styles.image} />
@@ -148,32 +159,14 @@ export default function SellPet() {
         )}
       </TouchableOpacity>
 
-      {/* TITLE */}
-      <TextInput
-        placeholder="Pet Name"
-        value={title}
-        onChangeText={setTitle}
-        style={styles.input}
-      />
+      <TextInput placeholder="Pet Name" value={title} onChangeText={setTitle} style={styles.input} />
+      <TextInput placeholder="Species" value={species} onChangeText={setSpecies} style={styles.input} />
+      <TextInput placeholder="Age" value={age} onChangeText={setAge} style={styles.input} />
+      <TextInput placeholder="Gender" value={gender} onChangeText={setGender} style={styles.input} />
+      <TextInput placeholder="Location" value={location} onChangeText={setLocation} style={styles.input} />
+      <TextInput placeholder="Description" value={description} onChangeText={setDescription} style={styles.input} />
+      <TextInput placeholder="Price" value={price} onChangeText={setPrice} keyboardType="numeric" style={styles.input} />
 
-      {/* DESCRIPTION */}
-      <TextInput
-        placeholder="Description"
-        value={description}
-        onChangeText={setDescription}
-        style={styles.input}
-      />
-
-      {/* PRICE */}
-      <TextInput
-        placeholder="Price"
-        value={price}
-        onChangeText={setPrice}
-        keyboardType="numeric"
-        style={styles.input}
-      />
-
-      {/* CATEGORY DROPDOWN */}
       <TouchableOpacity
         style={styles.input}
         onPress={() => setDropdownVisible(!dropdownVisible)}
@@ -201,7 +194,6 @@ export default function SellPet() {
         </View>
       )}
 
-      {/* SELL BUTTON */}
       <TouchableOpacity
         style={styles.button}
         onPress={handleSubmit}
@@ -212,12 +204,11 @@ export default function SellPet() {
         </Text>
       </TouchableOpacity>
 
-      {/* BACK BUTTON */}
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => router.replace("/dashboard")}
       >
-        <Text style={styles.buttonText}>Back to Dashboard</Text>
+        <Text style={styles.buttonText}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -229,21 +220,18 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#F5F6F7",
   },
-
   header: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#1B5E20",
     marginBottom: 20,
   },
-
   input: {
     backgroundColor: "#FFF",
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
   },
-
   imageBox: {
     height: 200,
     backgroundColor: "#E8F5E9",
@@ -252,40 +240,34 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 10,
   },
-
   image: {
     width: "100%",
     height: "100%",
     borderRadius: 12,
   },
-
   dropdown: {
     backgroundColor: "#FFF",
     borderRadius: 12,
     marginBottom: 10,
     overflow: "hidden",
   },
-
   dropdownItem: {
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-
   button: {
     backgroundColor: "#1B5E20",
     padding: 15,
     borderRadius: 12,
     marginTop: 10,
   },
-
   backButton: {
     backgroundColor: "#1B5E20",
     padding: 15,
     borderRadius: 12,
     marginTop: 10,
   },
-
   buttonText: {
     color: "#FFF",
     textAlign: "center",
